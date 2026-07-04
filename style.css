@@ -4,6 +4,10 @@
   padding: 0;
 }
 
+.hidden {
+  display: none;
+}
+
 :root {
   --bg: #0f0f17;
   --text: #e0e0e0;
