@@ -13,6 +13,11 @@ const COLORS = [
   '#e57373', // Z - red
   '#90caf9', // J - pale blue
   '#ffb74d', // L - orange
+  '#f5f5f5', // + (plus pentomino) - white
+  '#f06292', // U pentomino - pink
+  '#aed581', // Y pentomino - lime
+  '#fff176', // single (Tetris reward) - bright yellow
+  '#9575cd', // hollow 3x3 (challenge) - deep purple
 ];
 
 const PIECES = [
@@ -24,7 +29,20 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[0,8,0],[8,8,8],[0,8,0]],                  // + pentomino
+  [[9,0,9],[9,9,9]],                           // U pentomino
+  [[0,10],[10,10],[0,10],[0,10]],             // Y pentomino
+  [[11]],                                      // single (Tetris reward)
+  [[12,12,12],[12,0,12],[12,12,12]],          // hollow 3x3 (challenge)
 ];
+
+// Standard 7 pieces spawn most often; the pentomino/challenge shapes are
+// weighted low so they show up "occasionally" rather than uniformly.
+// Type 11 (the single reward block) is excluded here — it's only ever
+// handed out by clearLines() after a Tetris, never picked at random.
+const PIECE_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12];
+const PIECE_WEIGHTS = { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10, 8: 2, 9: 2, 10: 2, 12: 1 };
+const REWARD_PIECE_TYPE = 11;
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
@@ -67,10 +85,23 @@ function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
-function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+function weightedRandomType() {
+  const totalWeight = PIECE_TYPES.reduce((sum, t) => sum + PIECE_WEIGHTS[t], 0);
+  let r = Math.random() * totalWeight;
+  for (const t of PIECE_TYPES) {
+    r -= PIECE_WEIGHTS[t];
+    if (r < 0) return t;
+  }
+  return PIECE_TYPES[PIECE_TYPES.length - 1];
+}
+
+function createPiece(type) {
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function randomPiece() {
+  return createPiece(weightedRandomType());
 }
 
 function collide(shape, ox, oy) {
@@ -129,6 +160,9 @@ function clearLines() {
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    if (cleared === 4) {
+      next = createPiece(REWARD_PIECE_TYPE);
+    }
     updateHUD();
   }
 }
