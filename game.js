@@ -32,6 +32,8 @@ const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
 const nextCtx = nextCanvas.getContext('2d');
+const holdCanvas = document.getElementById('hold-canvas');
+const holdCtx = holdCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
@@ -41,7 +43,7 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, held, holdUsed, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let theme, gridColor;
 
 const THEME_STORAGE_KEY = 'tetris-theme';
@@ -159,6 +161,7 @@ function softDrop() {
 function lockPiece() {
   merge();
   clearLines();
+  holdUsed = false;
   spawn();
 }
 
@@ -169,6 +172,25 @@ function spawn() {
     endGame();
   }
   drawNext();
+  drawHold();
+}
+
+function hold() {
+  if (holdUsed) return;
+  holdUsed = true;
+  if (held === null) {
+    held = current.type;
+    spawn();
+  } else {
+    const heldType = held;
+    held = current.type;
+    const shape = PIECES[heldType].map(row => [...row]);
+    current = { type: heldType, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+    if (collide(current.shape, current.x, current.y)) {
+      endGame();
+    }
+    drawHold();
+  }
 }
 
 function updateHUD() {
@@ -239,6 +261,19 @@ function drawNext() {
       drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
 }
 
+function drawHold() {
+  const NB = 30;
+  holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+  holdCanvas.classList.toggle('locked', holdUsed);
+  if (held === null) return;
+  const shape = PIECES[held].map(row => [...row]);
+  const offX = Math.floor((4 - shape[0].length) / 2);
+  const offY = Math.floor((4 - shape.length) / 2);
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      drawBlock(holdCtx, offX + c, offY + r, shape[r][c], NB);
+}
+
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
@@ -285,6 +320,8 @@ function init() {
   level = 1;
   paused = false;
   gameOver = false;
+  held = null;
+  holdUsed = false;
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
@@ -316,6 +353,11 @@ document.addEventListener('keydown', e => {
     case 'Space':
       e.preventDefault();
       hardDrop();
+      break;
+    case 'KeyC':
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      hold();
       break;
   }
   updateHUD();
